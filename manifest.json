@@ -1,8 +1,8 @@
 {
     "manifest_version": 2,
     
-    "name": "Moodload BETA",
-    "description": "Makes it possible to download all files from any course on Moodle™.",
+    "name": "Moodload β",
+    "description": "Makes it possible to download all files from any course on Moodle™ in just one click.",
     "version": "0.1",
 
     "icons":
@@ -14,7 +14,7 @@
 
     "page_action":
     {
-        "default_title": "Moodload BETA",
+        "default_title": "Moodload β",
 
         "default_icon":
         {

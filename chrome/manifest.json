@@ -2,7 +2,7 @@
     "manifest_version": 2,
     
     "name": "Moodload β",
-    "description": "Makes it possible to download all files from any course on Moodle in just one click.",
+    "description": "Makes it possible to download all files from any course on Moodle in a click.",
     "version": "0.2",
 
     "icons":

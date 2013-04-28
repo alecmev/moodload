@@ -1,1 +1,1 @@
-Makes it possible to download all files from any course on Moodle in just one click.
+Makes it possible to download all files from any course on Moodle in a click.

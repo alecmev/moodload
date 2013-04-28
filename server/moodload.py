@@ -31,8 +31,8 @@ def application(env, sr):
     global respond, cookies, modResource
     respond = sr
 
-    if env['PATH_INFO'] != '/' or not 'url=' in env['QUERY_STRING']:
-        return error('Wrong path or no url ' + str(env))
+    if not 'url=' in env['QUERY_STRING']:
+        return error('No url')
 
     params = env['QUERY_STRING'].split('&')
     paramsCount = len(params)
@@ -47,7 +47,7 @@ def application(env, sr):
         i += 1
 
     if url == None or len(url) == 0:
-        return error('No url', sr)
+        return error('No url')
 
     urlParsed = urlparse.urlparse(url)
     urlRoot = urlParsed.scheme + '://' + urlParsed.netloc
@@ -55,7 +55,7 @@ def application(env, sr):
     courseID = urlparse.parse_qs(urlParsed.query)
 
     if not courseID.has_key('id'):
-        return error('No id in ' + url, sr)
+        return error('No id in ' + url)
 
     courseID = courseID['id'][0]
     courseDOM = load(url)
@@ -73,7 +73,10 @@ def application(env, sr):
     if sectionsDOM:
         for sectionDOM in sectionsDOM:
             keyDOM = sectionDOM.select('td.left.side')
-            titleDOM = sectionDOM.select('div.summary')
+            titleDOM = (
+                sectionDOM.select('div.summary h2') +
+                sectionDOM.select('div.summary h4')
+            )
 
             if keyDOM and titleDOM:
                 keyText = fix(keyDOM[0].get_text())
@@ -234,7 +237,7 @@ def error(comment):
 # Picks a unique extension-aware [file/dir]name in the working dir
 # Returns the resulting name (race condition unsafe)
 def unique(desired):
-    result = desired
+    result = desired.replace('/', '#')
     fileName, fileExt = os.path.splitext(desired)
     i = 0
 

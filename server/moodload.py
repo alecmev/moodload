@@ -19,12 +19,16 @@ sys.dont_write_bytecode = True
 from colors import colors
 
 verbose = True
-noMessages = False
+noInfo = False
 noWarnings = True
+noDir = False
+noParDir = True
 
 respond = None
 cookies = None
 modResource = None
+dirLevel = 0
+dirChar = '    '
 
 # The entry point
 def application(env, sr):
@@ -65,7 +69,7 @@ def application(env, sr):
         courseName = fix(courseName.group(1))
     else:
         warning('The title does not look like \'%blah%: %course%\' at' + url)
-        courseName = 'Some course'
+        courseName = 'Course ' + courseID
 
     sections = {}
     sectionsDOM = courseDOM.select('tr.section.main')
@@ -75,6 +79,7 @@ def application(env, sr):
             keyDOM = sectionDOM.select('td.left.side')
             titleDOM = (
                 sectionDOM.select('div.summary h2') +
+                sectionDOM.select('div.summary h3') +
                 sectionDOM.select('div.summary h4')
             )
 
@@ -101,10 +106,12 @@ def application(env, sr):
     if mainPath != os.getcwd():
         os.chdir(mainPath)
 
+    logDir()
     tmpDir = unique(str(uuid.uuid4())[:8])
     tmpPath = os.path.join(mainPath, 'tmp', tmpDir)
     os.mkdir(tmpPath)
     os.chdir(tmpPath)
+    logDir()
 
     currentKey = '0'
     currentSection = courseName
@@ -122,7 +129,7 @@ def application(env, sr):
                 currentSection = sections.get(currentKey, 'Section')
 
                 if currentSubDir:
-                    os.chdir(os.pardir)
+                    parDir()
 
                     if hasSomething:
                         hasSomething = False
@@ -151,16 +158,16 @@ def application(env, sr):
             hasSomething = True
 
             if parseFolder(resourceDOM):
-                message('Parsed ' + resourceLink)
+                info('Parsed ' + resourceLink)
             else:
                 subprocess.call([
                     'wget', '-E', '-H', '-k', '-p', '-nd', '-c', '-q',
                     '--header', 'Cookie: ' + cookies,
                     resourceLink
                 ])
-                message('Saved ' + resourceLink)
+                info('Saved ' + resourceLink)
 
-            os.chdir(os.pardir)
+            parDir()
         else:
             if download(resourceLink, resourceName):
                 hasSomething = True
@@ -168,11 +175,16 @@ def application(env, sr):
     zipPath = os.path.join(mainPath, 'static', tmpDir, courseName)
     shutil.make_archive(zipPath, 'zip', tmpPath)
     os.chdir(mainPath)
+    logDir(-1)
+    info('Generated ' + zipPath + '.zip')
 
     sr('200 OK', [('Content-Type', 'text/html; charset=utf-8')])
     return open('moodload.html', 'rb').read().replace(
         '_HREF_',
         tmpDir + '/' + courseName + '.zip'
+    ).replace(
+        '_COURSE_',
+        courseName
     ).encode('utf-8')
 
 # Parse a folder, parse all subfolders and download all files
@@ -195,9 +207,9 @@ def parseFolder(resourcePageDOM):
 
                 if parseFolder(folderDOM):
                     hasSomething = True
-                    os.chdir(os.pardir)
+                    parDir()
                 else:
-                    os.chdir(os.pardir)
+                    parDir()
                     os.rmdir(folderDir)
 
     if linkEntriesDOM:
@@ -218,21 +230,39 @@ def fix(str):
     return str.replace(u'\xa0', u' ').strip()
 
 # Prints a message
-def message(comment):
-    if verbose and not noMessages:
-        print colors.BLUE + 'MESSAGE' + colors.END + ' ' + comment
+def info(comment):
+    if verbose and not noInfo:
+        print (
+            colors.BLUE + (dirChar * dirLevel) + 'INFO ' + 
+            colors.END + comment
+        )
 
 # Prints a warning
 def warning(comment):
     if verbose and not noWarnings:
-        print colors.YELLOW + 'WARNING' + colors.END + ' ' + comment
+        print (
+            colors.YELLOW + (dirChar * dirLevel) + 'WARNING ' + 
+            colors.END + comment
+        )
 
 # Prints an error and sets the code to 422
 # Returns a message for output
 def error(comment):
-    print colors.RED + 'ERROR' + colors.END + ' ' + comment
+    print colors.RED + (dirChar * dirLevel) + 'ERROR ' + colors.END + comment
     respond('422 Unprocessable Entity', [('Content-Type','text/plain')])
     return '422 Unprocessable Entity [' + str(comment) + ']'
+
+# Prints current location and updates the indentation
+# delta = 1 is subdir, delta = -1 is pardir, delta = 0 is everything else
+def logDir(delta=0):
+    global dirLevel
+
+    # http://stackoverflow.com/a/3501408/242684
+    if isinstance(delta, (int, long)) and delta >= -1 and delta <= 1:
+        dirLevel += delta
+
+    if verbose and not noDir and not (delta == -1 and noParDir):
+        print colors.GREEN + (dirChar * dirLevel) + os.getcwd() + colors.END
 
 # Picks a unique extension-aware [file/dir]name in the working dir
 # Returns the resulting name (race condition unsafe)
@@ -256,7 +286,13 @@ def subDir(name, key=None):
     name = unique(name)
     os.mkdir(name)
     os.chdir(name)
+    logDir(1)
     return name
+
+# Navigates to the parent directory
+def parDir():
+    os.chdir(os.pardir)
+    logDir(-1)
 
 # Loads a resource, if its mime is text/html
 # Returns a BeautifulSoup object of the resource on success, False otherwise
@@ -271,20 +307,20 @@ def load(url):
         warning('LOAD: Failed to load ' + url)
         return False
 
-    code = urlHandle.getcode()
+    urlCode = urlHandle.getcode()
 
-    if code != 200:
-        warning('LOAD: Failed to load (' + str(code) + ') ' + url)
+    if urlCode != 200:
+        warning('LOAD: Failed to load (' + str(urlCode) + ') ' + url)
         return False
 
-    info = urlHandle.info()
+    urlInfo = urlHandle.info()
     result = False
 
-    if 'Content-Type' in info and 'text/html' in info['Content-Type']:
+    if 'Content-Type' in urlInfo and 'text/html' in urlInfo['Content-Type']:
         result = BeautifulSoup(urllib2.urlopen(request).read())
 
         if result != None:
-            message('Loaded ' + url)
+            info('Loaded ' + url)
     else:
         warning('LOAD: Not an HTML file at ' + url)
 
@@ -304,19 +340,19 @@ def download(url, possibleName=None):
         warning('DOWNLOAD: Failed to load ' + url)
         return False
 
-    code = urlHandle.getcode()
+    urlCode = urlHandle.getcode()
 
-    if code != 200:
-        warning('DOWNLOAD: Failed to load (' + str(code) + ') ' + url)
+    if urlCode != 200:
+        warning('DOWNLOAD: Failed to load (' + str(urlCode) + ') ' + url)
         return False
 
-    info = urlHandle.info()
+    urlInfo = urlHandle.info()
     fileName = None
 
-    if 'Content-Disposition' in info:
+    if 'Content-Disposition' in urlInfo:
         fileName = re.search(
             'filename\=\"([^\"]+)\"', 
-            info['Content-Disposition']
+            urlInfo['Content-Disposition']
         )
         if fileName:
             fileName = fileName.group(1)
@@ -344,7 +380,7 @@ def download(url, possibleName=None):
     try:
         with open(unique(fileName), 'wb') as fileHandle:
             shutil.copyfileobj(urlHandle, fileHandle)
-            message('Downloaded ' + url)
+            info('Downloaded ' + url)
             return True
     except:
         warning('DOWNLOAD: Failed to save ' + url)

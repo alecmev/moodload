@@ -1,6 +1,8 @@
 # Launch sequence:
-# uwsgi --socket :8001 --wsgi-file moodload.py
+# source /srv/.venvs/moodload/bin/activate
+# uwsgi --master --processes=4 --socket=:8001 --wsgi-file=moodload.py
 
+import itertools
 import mimetypes
 import os
 import re
@@ -28,34 +30,36 @@ respond = None
 cookies = None
 modResource = None
 dirLevel = 0
-dirChar = '    '
+dirSpace = '    '
 
 # The entry point
 def application(env, sr):
     global respond, cookies, modResource
     respond = sr
-
-    if not 'url=' in env['QUERY_STRING']:
-        return error('No url')
-
-    params = env['QUERY_STRING'].split('&')
-    paramsCount = len(params)
+    query = urlparse.parse_qs(env['QUERY_STRING'])
     url = None
-    i = 0
+    auto = False
 
-    while i < paramsCount:
-        if params[i][:4].lower() == 'url=':
-            url = urllib.unquote(params[i][4:])
-            del params[i]
-            break
-        i += 1
+    if query.has_key('moodload-url'):
+        url = query['moodload-url'][0]
+        del query['moodload-url']
+    else:
+        return error('No moodload-url')
 
-    if url == None or len(url) == 0:
-        return error('No url')
+    info('Url is ' + url)
 
+    if query.has_key('moodload-auto'):
+        if query['moodload-auto'][0] in ['0', '1']:
+            auto = query['moodload-auto'][0] == '1'
+        del query['moodload-auto']
+    else:
+        warning('No moodload-auto')
+
+    info('Auto is ' + str(auto))
+    cookies = '; '.join([x + '=' + y[0] for x, y in query.items()])
+    info('Cookies are ' + cookies)
     urlParsed = urlparse.urlparse(url)
     urlRoot = urlParsed.scheme + '://' + urlParsed.netloc
-    cookies = '; '.join(params)
     courseID = urlparse.parse_qs(urlParsed.query)
 
     if not courseID.has_key('id'):
@@ -78,9 +82,12 @@ def application(env, sr):
         for sectionDOM in sectionsDOM:
             keyDOM = sectionDOM.select('td.left.side')
             titleDOM = (
-                sectionDOM.select('div.summary h2') +
-                sectionDOM.select('div.summary h3') +
-                sectionDOM.select('div.summary h4')
+                sectionDOM.select('h1') +
+                sectionDOM.select('h2') +
+                sectionDOM.select('h3') +
+                sectionDOM.select('h4') +
+                sectionDOM.select('h5') +
+                sectionDOM.select('h6')
             )
 
             if keyDOM and titleDOM:
@@ -107,8 +114,13 @@ def application(env, sr):
         os.chdir(mainPath)
 
     logDir()
+    tmpRootPath = os.path.join(mainPath, 'tmp')
+    
+    if not os.path.exists(tmpRootPath):
+        os.mkdir(tmpRootPath)
+
     tmpDir = unique(str(uuid.uuid4())[:8])
-    tmpPath = os.path.join(mainPath, 'tmp', tmpDir)
+    tmpPath = os.path.join(tmpRootPath, tmpDir)
     os.mkdir(tmpPath)
     os.chdir(tmpPath)
     logDir()
@@ -172,20 +184,34 @@ def application(env, sr):
             if download(resourceLink, resourceName):
                 hasSomething = True
 
-    zipPath = os.path.join(mainPath, 'static', tmpDir, courseName)
+    staticRootPath = os.path.join(mainPath, 'static')
+    
+    if not os.path.exists(staticRootPath):
+        os.mkdir(staticRootPath)
+
+    zipPath = os.path.join(staticRootPath, tmpDir, courseName)
     shutil.make_archive(zipPath, 'zip', tmpPath)
     os.chdir(mainPath)
+    shutil.rmtree(tmpPath)
     logDir(-1)
     info('Generated ' + zipPath + '.zip')
 
-    sr('200 OK', [('Content-Type', 'text/html; charset=utf-8')])
-    return open('moodload.html', 'rb').read().replace(
-        '_HREF_',
-        tmpDir + '/' + courseName + '.zip'
-    ).replace(
-        '_COURSE_',
-        courseName
-    ).encode('utf-8')
+    if auto:
+        sr('200 OK', [
+            ('Content-Type', 'application/octet-stream'),
+            ('Content-Disposition', 'attachment; filename="' + 
+                courseName.encode('utf-8') + '.zip"')
+        ])
+        return open(zipPath + '.zip', 'rb').read()
+    else:
+        sr('200 OK', [('Content-Type', 'text/html; charset=utf-8')])
+        return open('moodload.html', 'rb').read().replace(
+            '_HREF_',
+            tmpDir + '/' + courseName + '.zip'
+        ).replace(
+            '_COURSE_',
+            courseName
+        ).encode('utf-8')
 
 # Parse a folder, parse all subfolders and download all files
 # Returns True if any files downloaded (including subfolders), False otherwise
@@ -233,7 +259,7 @@ def fix(str):
 def info(comment):
     if verbose and not noInfo:
         print (
-            colors.BLUE + (dirChar * dirLevel) + 'INFO ' + 
+            colors.BLUE + (dirSpace * dirLevel) + 'INFO ' + 
             colors.END + comment
         )
 
@@ -241,14 +267,14 @@ def info(comment):
 def warning(comment):
     if verbose and not noWarnings:
         print (
-            colors.YELLOW + (dirChar * dirLevel) + 'WARNING ' + 
+            colors.YELLOW + (dirSpace * dirLevel) + 'WARNING ' + 
             colors.END + comment
         )
 
 # Prints an error and sets the code to 422
 # Returns a message for output
 def error(comment):
-    print colors.RED + (dirChar * dirLevel) + 'ERROR ' + colors.END + comment
+    print colors.RED + (dirSpace * dirLevel) + 'ERROR ' + colors.END + comment
     respond('422 Unprocessable Entity', [('Content-Type','text/plain')])
     return '422 Unprocessable Entity [' + str(comment) + ']'
 
@@ -262,7 +288,7 @@ def logDir(delta=0):
         dirLevel += delta
 
     if verbose and not noDir and not (delta == -1 and noParDir):
-        print colors.GREEN + (dirChar * dirLevel) + os.getcwd() + colors.END
+        print colors.GREEN + (dirSpace * dirLevel) + os.getcwd() + colors.END
 
 # Picks a unique extension-aware [file/dir]name in the working dir
 # Returns the resulting name (race condition unsafe)

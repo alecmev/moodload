@@ -1,6 +1,5 @@
 {
     "manifest_version": 2,
-    
     "name": "Moodload β",
     "description": "Makes it possible to download all files from any course on Moodle in a click.",
     "version": "0.2",
@@ -15,7 +14,6 @@
     "page_action":
     {
         "default_title": "Moodload β",
-
         "default_icon":
         {
             "19": "icon-action-19.png",
@@ -32,7 +30,7 @@
     "content_scripts":
     [{
         "matches": [ "http://*/*", "https://*/*" ],
-        "js": [ "jquery-2.0.0.min.js", "jszip.js", "moodload.js" ],
+        "js": [ "jquery-2.0.0.min.js", "moodload.js" ],
         "all_frames": true
     }]
 }

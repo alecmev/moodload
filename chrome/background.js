@@ -1,6 +1,9 @@
 chrome.pageAction.onClicked.addListener(function(tab)
 {
-    chrome.tabs.sendMessage(tab.id, false, null);
+    chrome.tabs.sendMessage(tab.id, false, function(url)
+    {
+        chrome.tabs.create({ url: url });
+    });
 });
 
 chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab)

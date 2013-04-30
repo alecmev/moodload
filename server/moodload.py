@@ -67,6 +67,10 @@ def application(env, sr):
 
     courseID = courseID['id'][0]
     courseDOM = load(url)
+
+    if not courseDOM:
+        return error('Failed to load the course page')
+
     courseName = re.search(':\s(.+)$', courseDOM.title.get_text());
 
     if courseName:
@@ -100,7 +104,12 @@ def application(env, sr):
         warning('No \'tr.section.main\' at ' + url)
 
     modResource = urlRoot + '/mod/resource/'
-    resourceEntriesDOM = load(modResource + 'index.php?id=' + courseID).select(
+    resourcesPageDOM = load(modResource + 'index.php?id=' + courseID)
+
+    if not resourcesPageDOM:
+        return error('Failed to load the resources page')
+
+    resourceEntriesDOM = resourcesPageDOM.select(
         'table.generaltable.boxaligncenter tr'
     )
 

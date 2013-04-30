@@ -1,13 +1,12 @@
-// Incoming message from the background process
-chrome.runtime.onMessage.addListener(function(check, sender, respond)
+chrome.runtime.onMessage.addListener(function(message, sender, sendResponse)
 {
     var url = document.URL.match(/(.+)\/course\/view\.php\?.*id\=(\d+)/i);
     var isMoodle = 
         document.getElementsByTagName('html')[0].innerHTML
         .match(/moodle/i) != null && url != null;
     
-    if (check)
-        respond(isMoodle);
+    if (message)
+        sendResponse(isMoodle);
     else if (isMoodle)
     {
         var cookies = document.cookie
@@ -17,17 +16,10 @@ chrome.runtime.onMessage.addListener(function(check, sender, respond)
             .replace(/\&/g, '%26')
             .replace(/;/g, '&');
 
-        respond(
+        sendResponse(
             'http://moodload.jeremejevs.com/?moodload-auto=1&moodload-url=' + 
             encodeURIComponent(document.URL) +
             (cookies.length > 0 ? '&' + cookies : '')
         );
-
-        // chrome.tabs.create({
-        //     url: 
-        //         'http://moodload.jeremejevs.com/?url=' + 
-        //         encodeURIComponent(document.URL) +
-        //         (cookies.length > 0 ? '&' + cookies : '')
-        // });
     }
 });

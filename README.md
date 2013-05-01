@@ -2,6 +2,14 @@
 
 Makes it possible to download all files from any course on Moodle in a click.
 
+### bash
+
+```bash
+cd /srv/moodload
+source /srv/.venvs/moodload/bin/activate
+uwsgi --master --processes=4 --socket=:8001 --wsgi-file=moodload.py
+```
+
 ### nginx.conf
 
 ```nginx
@@ -62,12 +70,4 @@ server
         alias           /srv/moodload/static/;
     }
 }
-```
-
-### bash
-
-```bash
-cd /srv/moodload
-source /srv/.venvs/moodload/bin/activate
-uwsgi --master --processes=4 --socket=:8001 --wsgi-file=moodload.py
 ```

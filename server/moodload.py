@@ -412,9 +412,12 @@ def download(url, possibleName=None):
         urlHandle.close()
         return False
 
+    fileName = unique(fileName)
+
     try:
         with open(unique(fileName), 'wb') as fileHandle:
             shutil.copyfileobj(urlHandle, fileHandle)
+            os.utime(fileName, None) # Reset the access and modification time
             info('Downloaded ' + url)
             return True
     except:

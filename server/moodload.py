@@ -186,6 +186,8 @@ def application(env, sr):
                     '--header', 'Cookie: ' + cookies,
                     resourceLink
                 ])
+                for wgetFile in os.listdir('.'):
+                    os.utime(wgetFile, None) # ZIP not compatible with < 1980
                 info('Saved ' + resourceLink)
 
             parDir()
@@ -417,7 +419,7 @@ def download(url, possibleName=None):
     try:
         with open(unique(fileName), 'wb') as fileHandle:
             shutil.copyfileobj(urlHandle, fileHandle)
-            os.utime(fileName, None) # Reset the access and modification time
+            os.utime(fileName, None) # ZIP not compatible with < 1980
             info('Downloaded ' + url)
             return True
     except:

@@ -396,8 +396,8 @@ def download(url, possibleName=None):
     else:
         warning('DOWNLOAD: No Content-Disposition for ' + url)
 
-    if not fileName and 'Content-Type' in info:
-        mime = re.match('([^;]+)', info['Content-Type'])
+    if not fileName and 'Content-Type' in urlInfo:
+        mime = re.match('([^;]+)', urlInfo['Content-Type'])
         if mime:
             fileExt = mimetypes.guess_extension(mime.group(1))
             if fileExt != None:

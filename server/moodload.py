@@ -104,7 +104,8 @@ def application(env, sr):
         warning('No \'tr.section.main\' at ' + url)
 
     modResource = urlRoot + '/mod/resource/'
-    resourcesPageDOM = load(modResource + 'index.php?id=' + courseID)
+    resUrl = modResource + 'index.php?id=' + courseID
+    resourcesPageDOM = load(resUrl)
 
     if not resourcesPageDOM:
         return error('Failed to load the resources page')
@@ -114,7 +115,7 @@ def application(env, sr):
     )
 
     if not resourceEntriesDOM:
-        return error('No \'table.generaltable.boxaligncenter\' at ' + url)
+        return error('No \'table.generaltable.boxaligncenter\' at ' + resUrl)
 
     mainPath = os.path.dirname(os.path.realpath(__file__))
 

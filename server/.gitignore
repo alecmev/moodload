@@ -2,3 +2,4 @@ static/
 tmp/
 
 *.pyc
+*.log

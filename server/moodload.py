@@ -31,10 +31,23 @@ cookies = None
 modResource = None
 dirLevel = 0
 dirSpace = '    '
+mainPath = None
 
 # The entry point
 def application(env, sr):
-    global respond, cookies, modResource
+    global mainPath
+    mainPath = os.getcwd()
+
+    # Addresses issue #14
+    try:
+        return main(env, sr)
+    finally:
+        os.chdir(mainPath)
+        logDir(reset=True)
+
+# The worker
+def main(env, sr):
+    global respond, cookies, modResource, mainPath
     respond = sr
     query = urlparse.parse_qs(env['QUERY_STRING'])
     url = None
@@ -116,12 +129,6 @@ def application(env, sr):
 
     if not resourceEntriesDOM:
         return error('No \'table.generaltable.boxaligncenter\' at ' + resUrl)
-
-    mainPath = os.path.dirname(os.path.realpath(__file__))
-
-    # In case the previous request didn't end successfully
-    if mainPath != os.getcwd():
-        os.chdir(mainPath)
 
     logDir()
     tmpRootPath = os.path.join(mainPath, 'tmp')
@@ -209,12 +216,14 @@ def application(env, sr):
     info('Generated ' + zipPath + '.zip')
 
     if auto:
+        zipFile = zipPath + '.zip'
         sr('200 OK', [
             ('Content-Type', 'application/octet-stream'),
             ('Content-Disposition', 'attachment; filename="' + 
-                courseName.encode('utf-8') + '.zip"')
+                courseName.encode('utf-8') + '.zip"'),
+            ('Content-Length', str(os.stat(zipFile).st_size))
         ])
-        return open(zipPath + '.zip', 'rb').read()
+        return env['wsgi.file_wrapper'](open(zipFile, 'r'), 8192)
     else:
         sr('200 OK', [('Content-Type', 'text/html; charset=utf-8')])
         return open('moodload.html', 'rb').read().replace(
@@ -292,12 +301,16 @@ def error(comment):
 
 # Prints current location and updates the indentation
 # delta = 1 is subdir, delta = -1 is pardir, delta = 0 is everything else
-def logDir(delta=0):
+# reset sets current level to 0 (root)
+def logDir(delta=0, reset=False):
     global dirLevel
 
     # http://stackoverflow.com/a/3501408/242684
-    if isinstance(delta, (int, long)) and delta >= -1 and delta <= 1:
+    if isinstance(delta, (int, long)):
         dirLevel += delta
+    
+    if reset:
+        dirLevel = 0
 
     if verbose and not noDir and not (delta == -1 and noParDir):
         print colors.GREEN + (dirSpace * dirLevel) + os.getcwd() + colors.END

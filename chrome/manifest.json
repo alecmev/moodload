@@ -2,7 +2,8 @@
     "manifest_version": 2,
     "name": "Moodload β",
     "description": "Makes it possible to download all files from any course on Moodle in a click.",
-    "version": "0.2",
+    "version": "0.2.1",
+    "content_security_policy": "script-src 'self' https://ssl.google-analytics.com; object-src 'self'",
 
     "icons":
     {
